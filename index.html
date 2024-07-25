@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>鸣潮唤取分析助手</title>
+    <link href="plugin/layui/css/layui.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="layui-container" style="margin-top: 30px">
+    <div class="layui-row">
+        <div class="layui-col-md8 layui-col-md-offset2" style="height: 70px ;font-size: 35px">唤取分析</div>
+    </div>
+    <div class="layui-row">
+        <div class="layui-col-md2 layui-col-md-offset8">
+            <div id="state-text" style="font-size: 15px">
+
+            </div>
+        </div>
+    </div>
+    <!--    角色选择-->
+    <div class="layui-row" style="margin-top: 50px">
+        <div class="layui-col-md8 layui-col-md-offset2">
+            <div class="layui-form">
+                <div class=" layui-row">
+                    <div>
+                        <div class="layui-inline" style="width: 225px ;padding-right: 10px">
+                            <input class="layui-input" id="role-selector" name=""
+                                   placeholder="选择一个角色..."/>
+                        </div>
+                        <button class="layui-btn layui-btn-primary" id="role-reload">刷新角色列表</button>
+                        <button class="layui-btn layui-btn-primary layui-border-blue" id="role-add">添加角色</button>
+                        <button class="layui-btn layui-btn-primary layui-border-red" id="role-delete">删除角色
+                        </button>
+                        <button class="layui-btn layui-btn-primary layui-border-orange" id="convene-update">更新记录
+                        </button>
+                        <button class="layui-btn layui-btn-primary layui-border-green" id="convene-download">导出记录
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="layui-row" style="margin-top: 75px">
+        <div id="msg" style="text-align: center;font-size: 25px">等待查询</div>
+    </div>
+
+    <!--    唤取分析面板-->
+    <div class="layui-row" id="card-pool-analyse" style="margin-top: 75px">
+        <div class="layui-col-md8 layui-col-md-offset2">
+        </div>
+    </div>
+</div>
+
+<!--添加角色弹出层表单-->
+<div id="add-role-wrapper">
+</div>
+
+<!--更新唤取记录弹出层表单-->
+<div id="update-convene-wrapper">
+</div>
+
+<script src="plugin/layui/layui.js"></script>
+<script src="plugin/jquery-3.6.1.js"></script>
+<script src="plugin/axios-0.18.0.js"></script>
+<script>
+
+    //如果代理服务器配置的是a.com，则需要将www.a.com重定向至a.com。反之亦然
+    $(function () {
+        let currentUrl = window.location.href;
+        // 检查URL是否以'www.'开头
+        if (currentUrl.indexOf("://www.") > -1) {
+            // 去掉'www.'
+            var newUrl = currentUrl.replace("://www.", "://");
+
+            // 重定向到新的URL
+            window.location.href = newUrl;
+        }
+
+        // // 检查URL是否没有以'www.'开头
+        // if (currentUrl.indexOf("://www.") === -1) {
+        //     // 添加'www.'
+        //     var newUrl = currentUrl.replace("://", "://www.");
+        //
+        //     // 重定向到新的URL
+        //     window.location.href = newUrl;
+        // }
+    });
+
+    let server = {
+        host: "http://localhost",
+        port: "81",
+        prefix: "/api",
+        get url() {
+            return this.host + ":" + this.port + this.prefix;
+        }
+    };
+
+    let selectedPlayerId = -1;
+
+    let wrapperIndex = {};
+
+    let selectRoles;
+
+    let selectAnalysis;
+
+    $(function () {
+        axios.get(server.url + "/common").then(function (response) {
+            if (response.data.code == 1 && response.data.data == "Hello") $("#state-text").css("color", " #16baaa").html("<span class=\"layui-badge-dot layui-bg-green\"></span> 已连接到服务端");
+            else {
+                $("#state-text").css("color", " #ff5722").html("<span class=\"layui-badge-dot layui-bg-red\"></span> 未能连接到服务端");
+                layer.alert("未能连接到服务端，请联系管理员", {icon: 2, closeBtn: 0});
+            }
+        }).catch(function () {
+            $("#state-text").css("color", " #ff5722").html("<span class=\"layui-badge-dot layui-bg-red\"></span> 未能连接到服务端");
+            layer.alert("未能连接到服务端，请联系管理员", {icon: 2, closeBtn: 0});
+        });
+
+    });
+
+    layui.use(function () {
+
+        //弹出层对象
+        let dropdown = layui.dropdown;
+
+        //查询所有角色并更新下列列表
+        selectRoles = function () {
+            console.log("查询所有角色...");
+            axios.get(server.url + "/role").then(function (response) {
+
+                if (response.data.code != 1) {
+                    layer.msg(response.data.msg, {icon: 2});
+                    return;
+                }
+
+                let roles = response.data.data;
+                if (roles.length == 0) {
+                    layer.msg("角色列表为空，请先添加角色", {icon: 0});
+                    return;
+                }
+                layer.msg("获取到 " + roles.length + " 个角色", {icon: 1});
+
+                function transformRoles(roles) {
+                    return roles.map(item => {
+                        return {
+                            title: item.playerId + " " + item.roleName,
+                            id: item.playerId
+                        };
+                    });
+                }
+
+                console.log("渲染下拉菜单");
+                let data = transformRoles(roles);
+                dropdown.render({
+                    elem: "#role-selector",
+                    data: data,
+                    click: function (obj) {
+                        this.elem.val(obj.title);
+                        layer.msg("选择了角色 " + obj.id, {icon: 1});
+                        selectedPlayerId = obj.id;
+                        selectAnalysis(obj.id);
+                    }
+                });
+            });
+        };
+
+        //查询唤取分析并渲染到页面
+        selectAnalysis = function (playerId) {
+            console.log("查询唤取分析");
+            $("#card-pool-analyse div").load("html/card-pool-analyse.html");
+            $("#card-pool-analyse").addClass("layui-hide");
+            axios.get(server.url + "/analysis/" + playerId).then(function (response) {
+
+                if (response.data.code != 1) {
+                    layer.msg(response.data.msg, {icon: 2});
+                    return;
+                }
+
+                let analysisVO = response.data.data;
+                let conveneSummary = analysisVO.conveneSummary;
+                let rareConveneItems = analysisVO.rareConveneItems;
+                if (conveneSummary === null) {
+                    $("#msg").removeClass("layui-hide").html("无数据，请先更新");
+                    return;
+                }
+                $("#msg").addClass("layui-hide");
+                $("#card-pool-analyse").removeClass("layui-hide");
+
+                for (let cardPoolIndex = 1; cardPoolIndex <= 7; cardPoolIndex++) {
+                    if (cardPoolIndex in rareConveneItems) {
+                        $("#card-pool-" + cardPoolIndex + " .card-pool-no-rare-item").addClass("layui-hide");
+                        //唤取总结
+                        let cardPoolCost = conveneSummary.cardPoolCost[cardPoolIndex];
+                        let cardPoolGet = conveneSummary.cardPoolGet[cardPoolIndex];
+                        let cardPoolPrepared = conveneSummary.cardPoolPrepared[cardPoolIndex];
+                        let cardPoolTarget = conveneSummary.cardPoolTarget[cardPoolIndex];
+                        let conveneSummaryHtml = "<tr>" +
+                            "<td>" + cardPoolCost + "</td>" +
+                            "<td>" + ((cardPoolCost - cardPoolPrepared) / cardPoolGet).toFixed(2) + "</td>" +
+                            "<td>" + ((cardPoolIndex === 1) ? (cardPoolTarget + " / " + cardPoolGet) : (cardPoolGet)) + "</td>" +
+                            "<td>" + cardPoolPrepared + "</td>" +
+                            "</tr>";
+                        $("#card-pool-" + cardPoolIndex + " .card-pool-summary").removeClass("layui-hide");
+                        $("#card-pool-" + cardPoolIndex + " .card-pool-summary table tbody").html(conveneSummaryHtml);
+                        //五星记录
+                        let rareConveneItemsHtml = "";
+                        for (let rareConveneItem of rareConveneItems[cardPoolIndex])
+                            rareConveneItemsHtml += "<tr>" +
+                                "<td>" + "<img src=" + server.url + "/pic/" + rareConveneItem.resourceType + "/" + rareConveneItem.name + ".png" + " />" + "</td>" +
+                                "<td>" + rareConveneItem.name + (rareConveneItem.target == false ? "<span class=\"layui-badge\" style=\"margin-left: 15px\">歪</span>" : "") + "</td>" +
+                                "<td>" + rareConveneItem.cost + "</td>" +
+                                "<td>" + rareConveneItem.time + "</td>" +
+                                "</tr>";
+                        $("#card-pool-" + cardPoolIndex + " .card-pool-rare-item").removeClass("layui-hide");
+                        $("#card-pool-" + cardPoolIndex + " .card-pool-rare-item table tbody").html(rareConveneItemsHtml);
+
+                    }
+                }
+            });
+        };
+
+        //访问页面时自动查询所有角色
+        selectRoles();
+
+        //刷新角色列表按钮
+        $("#role-reload").click(function () {
+            selectRoles();
+        });
+
+        //添加角色按钮
+        $("#role-add").click(function () {
+            console.log("添加按钮被点击...");
+            //添加角色的弹出层表单
+            $("#add-role-wrapper").load("html/add-role-form.html");
+            wrapperIndex.addRoleWrapperIndex = layer.open({
+                title: "添加角色",
+                type: 1,
+                content: $("#add-role-wrapper"),
+                area: ["300px", "300px"],
+                end: function () {
+                    $("#add-role-wrapper").html("");
+                }
+            });
+        });
+
+        //删除角色按钮
+        $("#role-delete").click(function () {
+            if (selectedPlayerId == -1) {
+                layer.msg("请先选择一个角色", {icon: 0});
+                return;
+            }
+            layer.confirm("确定要删除角色 " + selectedPlayerId + " 吗?<br>此操作会删除所有唤取记录和分析结果", {
+                icon: 3,
+                title: "提示"
+            }, function (index) {
+                axios.delete(server.url + "/role/" + selectedPlayerId).then(function (response) {
+
+                    if (response.data.code != 1) {
+                        layer.msg(response.data.msg, {icon: 2});
+                        return;
+                    }
+
+                    //删除后刷新当前页
+                    location.reload();
+                });
+                layer.close(index);
+            }, function (index) {
+                layer.close(index);
+            });
+        });
+
+        //更新记录按钮
+        $("#convene-update").click(function () {
+            console.log("更新记录按钮被点击...");
+            if (selectedPlayerId == -1) {
+                layer.msg("请先选择一个角色", {icon: 0});
+                return;
+            }
+            $("#update-convene-wrapper").load("html/update-convene-form.html");
+            wrapperIndex.conveneUpdateWrapperIndex = layer.open({
+                title: "更新唤取记录",
+                type: 1,
+                content: $("#update-convene-wrapper"),
+                area: ["640px", "725px"],
+
+                end: function () {
+                    $("#update-convene-wrapper").html("");
+                }
+            });
+
+        });
+
+        $("#convene-download").click(function () {
+            if (selectedPlayerId == -1) {
+                layer.msg("请先选择一个角色", {icon: 0});
+                return;
+            }
+            window.location.href = server.url + "/convene/export/" + selectedPlayerId;
+        });
+
+    });
+</script>
+</body>
+</html>

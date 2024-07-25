@@ -1,0 +1,49 @@
+<div style="margin: 40px 20px 20px 20px">
+    <div style="width: 200px;margin: auto">
+        <input class="layui-input" id="add-role-playerId" placeholder="角色UID（playerId）" type="text"></div>
+    <br/>
+    <div style="width: 200px;margin: auto">
+        <input class="layui-input" id="add-role-roleName" placeholder="角色名（roleName）" type="text"></div>
+    <br/>
+    <div style="width: 200px;margin: auto">
+        <button class="layui-btn" id="add-role-submit" style="width:90px">提交</button>
+        <button class="layui-btn layui-btn-primary" id="add-role-clear" style="width:90px">清空</button>
+    </div>
+</div>
+<script>
+    $("#add-role-submit").click(function () {
+        let playerId = $("#add-role-playerId").val();
+        let roleName = $("#add-role-roleName").val();
+        if (playerId == "" || roleName == "") {
+            layer.msg("当前表单未填写完整", {icon: 0});
+            return;
+        }
+        console.log(playerId + "---" + roleName);
+        axios.post(server.url + "/role", {
+            playerId: playerId,
+            roleName: roleName
+        }, {
+            headers: {
+                "Content-Type": "application/json"
+            }
+        }).then(function (response) {
+
+            if (response.data.code != 1) {
+                layer.msg(response.data.msg, {icon: 2});
+                return;
+            }
+
+            layer.close(wrapperIndex.addRoleWrapperIndex);
+            delete wrapperIndex.addRoleWrapperIndex;
+            layer.alert("添加成功", {icon: 1, closeBtn: 0}, function (index) {
+                layer.close(index);
+                selectRoles();
+            });
+        });
+    });
+
+    $("#add-role-clear").click(function () {
+        $("#add-role-playerId").val("");
+        $("#add-role-roleName").val("");
+    });
+</script>

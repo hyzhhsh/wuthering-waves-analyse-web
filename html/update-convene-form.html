@@ -1,0 +1,206 @@
+<div style="margin: 20px 20px 20px 20px">
+    <fieldset class="layui-elem-field">
+        <legend style="font-size: 20px">在线更新</legend>
+        <div style="margin: 20px 20px 20px 20px ">
+            <div style="display: flex; align-items: center">
+                <div style="width: 400px;margin: auto">
+                        <textarea class="layui-textarea" id="update-convene-url"
+                                  placeholder="在此输入完整的唤取记录URL，点击“识别”按钮即可自动填充各参数，亦可手动输入。"
+                                  style="height: 150px"></textarea>
+                </div>
+                <button class="layui-btn layui-btn-primary layui-border-green" id="update-convene-match"
+                        style="height: 150px;width: 150px ;margin-left: 20px">识别
+                </button>
+            </div>
+            <br>
+            <div>
+                <div style="display: flex; align-items: center">
+                    <div class="layui-input-group">
+                        <div class="layui-input-prefix">角色UID</div>
+                        <input class="layui-input" disabled id="update-convene-playerId" placeholder="角色UID"
+                               style="width: 200px" type="text">
+                    </div>
+                    <div class="layui-input-group">
+                        <div class="layui-input-prefix">cardPoolId</div>
+                        <input class="layui-input" id="update-convene-cardPoolId" placeholder="cardPoolId"
+                               style="width: 200px" type="text">
+                    </div>
+                </div>
+                <br>
+                <div style="display: flex; align-items: center">
+                    <div class="layui-input-group">
+                        <div class="layui-input-prefix">serverId</div>
+                        <input class="layui-input" id="update-convene-serverId" placeholder="serverId"
+                               style="width: 200px" type="text">
+                    </div>
+                    <div class="layui-input-group">
+                        <div class="layui-input-prefix">recordId</div>
+                        <input class="layui-input" id="update-convene-recordId" placeholder="recordId"
+                               style="width: 220px" type="text">
+                    </div>
+                </div>
+                <br>
+                <div style="display: flex; align-items: center ;justify-content: center;">
+                    <button class="layui-btn" id="update-convene-submit" style="width:125px ;margin-right: 10px">提交
+                    </button>
+                    <button class="layui-btn layui-btn-primary" id="update-convene-clear"
+                            style="width:125px;margin-left: 10px">清空
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </fieldset>
+    <fieldset class="layui-elem-field">
+        <legend style="font-size: 20px">离线更新</legend>
+        <div style="margin: 10px 20px 20px 20px ">
+            <div style="margin-bottom: 20px">在此上传与官方接口返回格式相同的.json文件</div>
+            <div class="layui-upload-drag" id="update-convene-upload" style="display: block;">
+                <i class="layui-icon layui-icon-upload"></i>
+                <div>点击上传，或将文件拖拽到此处</div>
+            </div>
+        </div>
+    </fieldset>
+</div>
+<script>
+    $(function () {
+        //参数回显
+        $("#update-convene-playerId").val(selectedPlayerId);
+        axios.get(server.url + "/role/" + selectedPlayerId).then(function (response) {
+
+            if (response.data.code != 1) {
+                layer.msg(response.data.msg, {icon: 2});
+                return;
+            }
+
+            let data = response.data.data;
+            $("#update-convene-cardPoolId").val(data.cardPoolId);
+            $("#update-convene-serverId").val(data.serverId);
+            $("#update-convene-recordId").val(data.recordId);
+        });
+
+        //文件上传对象
+        let upload = layui.upload;
+
+        //渲染上传组件
+        upload.render({
+            elem: "#update-convene-upload",
+            url: server.url + "/file/upload",
+            accept: "file",
+            size: 1024,
+            done: function (res) {
+                if (res.code != 1) {
+                    layer.msg(response.data.msg, {icon: 0});
+                    return;
+                }
+
+                let loadIndex = layer.msg("上传成功，服务端处理中，请稍等", {
+                    icon: 16,
+                    shade: 0.01,
+                    time: 30000
+                });
+
+                let fileUrl = res.data;
+
+                axios.put(server.url + "/convene/get-by-file", {
+                    playerId: selectedPlayerId,
+                    url: fileUrl
+                }, {
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                }).then(function (response) {
+                    layer.close(loadIndex);
+                    if (response.data.code != 1) {
+                        layer.msg(response.data.msg, {icon: 2});
+                        return;
+                    }
+
+                    layer.close(wrapperIndex.conveneUpdateWrapperIndex);
+                    delete wrapperIndex.conveneUpdateWrapperIndex;
+
+                    layer.alert(response.data.data, {icon: 1, closeBtn: 0}, function (index) {
+                        layer.close(index);
+                        selectAnalysis(selectedPlayerId);
+                    });
+
+                });
+
+            }
+        });
+    });
+
+    //识别按钮
+    $("#update-convene-match").click(function () {
+        let updateConveneUrl = $("#update-convene-url").val();
+        try {
+            let string = updateConveneUrl.split("#")[1].split("?")[1];
+            let urlSearchParams = new URLSearchParams(string);
+            let playerId = urlSearchParams.get("player_id");
+            if (playerId != selectedPlayerId) {
+                layer.msg("URL指向的角色与当前选择的角色不符，请检查", {icon: 2});
+                return;
+            }
+            let cardPoolId = urlSearchParams.get("resources_id");
+            let serverId = urlSearchParams.get("svr_id");
+            let recordId = urlSearchParams.get("record_id");
+            $("#update-convene-cardPoolId").val(cardPoolId);
+            $("#update-convene-serverId").val(serverId);
+            $("#update-convene-recordId").val(recordId);
+        } catch (e) {
+            layer.msg("URL不合法", {icon: 2});
+        }
+    });
+
+    //提交按钮
+    $("#update-convene-submit").click(function () {
+        let cardPoolId = $("#update-convene-cardPoolId").val();
+        let serverId = $("#update-convene-serverId").val();
+        let recordId = $("#update-convene-recordId").val();
+        if (cardPoolId == "" || serverId == "" || recordId == "") {
+            layer.msg("当前表单未填写完整", {icon: 0});
+            return;
+        }
+        console.log(selectedPlayerId + "---" + cardPoolId + "---" + serverId + "---" + recordId);
+
+        let loadIndex = layer.msg("服务端处理中，请稍等", {
+            icon: 16,
+            shade: 0.01,
+            time: 30000
+        });
+
+        axios.put(server.url + "/convene/get-by-api", {
+            playerId: selectedPlayerId,
+            cardPoolId: cardPoolId,
+            serverId: serverId,
+            recordId: recordId
+        }, {
+            headers: {
+                "Content-Type": "application/json"
+            }
+        }).then(function (response) {
+            layer.close(loadIndex);
+            if (response.data.code != 1) {
+                layer.msg(response.data.msg, {icon: 2});
+                return;
+            }
+
+            layer.close(wrapperIndex.conveneUpdateWrapperIndex);
+            delete wrapperIndex.conveneUpdateWrapperIndex;
+
+            layer.alert(response.data.data, {icon: 1, closeBtn: 0}, function (index) {
+                layer.close(index);
+                selectAnalysis(selectedPlayerId);
+            });
+
+        });
+
+    });
+
+    //清空按钮
+    $("#update-convene-clear").click(function () {
+        $("#update-convene-cardPoolId").val("");
+        $("#update-convene-serverId").val("");
+        $("#update-convene-recordId").val("");
+    });
+</script>
