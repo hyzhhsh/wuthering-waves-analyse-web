@@ -108,11 +108,15 @@
             if (response.data.code == 1 && response.data.data == "Hello") $("#state-text").css("color", " #16baaa").html("<span class=\"layui-badge-dot layui-bg-green\"></span> 已连接到服务端");
             else {
                 $("#state-text").css("color", " #ff5722").html("<span class=\"layui-badge-dot layui-bg-red\"></span> 未能连接到服务端");
-                layer.alert("未能连接到服务端，请联系管理员", {icon: 2, closeBtn: 0});
+                layer.alert("未能连接到服务端，请联系管理员", {icon: 2, closeBtn: 0}, function () {
+                    location.reload();
+                });
             }
         }).catch(function () {
             $("#state-text").css("color", " #ff5722").html("<span class=\"layui-badge-dot layui-bg-red\"></span> 未能连接到服务端");
-            layer.alert("未能连接到服务端，请联系管理员", {icon: 2, closeBtn: 0});
+            layer.alert("未能连接到服务端，请联系管理员", {icon: 2, closeBtn: 0}, function () {
+                location.reload();
+            });
         });
 
     });
@@ -186,7 +190,7 @@
                 $("#card-pool-analyse").removeClass("layui-hide");
 
                 for (let cardPoolIndex = 1; cardPoolIndex <= 7; cardPoolIndex++) {
-                    if (cardPoolIndex in rareConveneItems) {
+                    if (conveneSummary.cardPoolCost[cardPoolIndex] > 0) {
                         $("#card-pool-" + cardPoolIndex + " .card-pool-no-rare-item").addClass("layui-hide");
                         //唤取总结
                         let cardPoolCost = conveneSummary.cardPoolCost[cardPoolIndex];
@@ -195,23 +199,25 @@
                         let cardPoolTarget = conveneSummary.cardPoolTarget[cardPoolIndex];
                         let conveneSummaryHtml = "<tr>" +
                             "<td>" + cardPoolCost + "</td>" +
-                            "<td>" + ((cardPoolCost - cardPoolPrepared) / cardPoolGet).toFixed(2) + "</td>" +
+                            "<td>" + ((cardPoolGet > 0) ? ((cardPoolCost - cardPoolPrepared) / cardPoolGet).toFixed(2) : "暂未出五星") + "</td>" +
                             "<td>" + ((cardPoolIndex === 1) ? (cardPoolTarget + " / " + cardPoolGet) : (cardPoolGet)) + "</td>" +
                             "<td>" + cardPoolPrepared + "</td>" +
                             "</tr>";
                         $("#card-pool-" + cardPoolIndex + " .card-pool-summary").removeClass("layui-hide");
                         $("#card-pool-" + cardPoolIndex + " .card-pool-summary table tbody").html(conveneSummaryHtml);
                         //五星记录
-                        let rareConveneItemsHtml = "";
-                        for (let rareConveneItem of rareConveneItems[cardPoolIndex])
-                            rareConveneItemsHtml += "<tr>" +
-                                "<td>" + "<img src=" + server.url + "/pic/" + rareConveneItem.resourceType + "/" + rareConveneItem.name + ".png" + " />" + "</td>" +
-                                "<td>" + rareConveneItem.name + (rareConveneItem.target == false ? "<span class=\"layui-badge\" style=\"margin-left: 15px\">歪</span>" : "") + "</td>" +
-                                "<td>" + rareConveneItem.cost + "</td>" +
-                                "<td>" + rareConveneItem.time + "</td>" +
-                                "</tr>";
-                        $("#card-pool-" + cardPoolIndex + " .card-pool-rare-item").removeClass("layui-hide");
-                        $("#card-pool-" + cardPoolIndex + " .card-pool-rare-item table tbody").html(rareConveneItemsHtml);
+                        if (cardPoolIndex in rareConveneItems) { //五星记录
+                            let rareConveneItemsHtml = "";
+                            for (let rareConveneItem of rareConveneItems[cardPoolIndex])
+                                rareConveneItemsHtml += "<tr>" +
+                                    "<td>" + "<img src=" + server.url + "/pic/" + rareConveneItem.resourceType + "/" + rareConveneItem.name + ".png" + " />" + "</td>" +
+                                    "<td>" + rareConveneItem.name + (rareConveneItem.target == false ? "<span class=\"layui-badge\" style=\"margin-left: 15px\">歪</span>" : "") + "</td>" +
+                                    "<td>" + rareConveneItem.cost + "</td>" +
+                                    "<td>" + rareConveneItem.time + "</td>" +
+                                    "</tr>";
+                            $("#card-pool-" + cardPoolIndex + " .card-pool-rare-item").removeClass("layui-hide");
+                            $("#card-pool-" + cardPoolIndex + " .card-pool-rare-item table tbody").html(rareConveneItemsHtml);
+                        }
 
                     }
                 }
